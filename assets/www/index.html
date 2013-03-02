@@ -1,0 +1,243 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+<title>PositionBySms</title>
+
+<meta name="viewport" content="width=device-width,initial-scale=1">
+
+<link rel="stylesheet" href="css/themes/dark.min.css" />
+<link rel="stylesheet" href="css/jquery.mobile.structure-1.1.0.min.css" />
+
+<script type="text/javascript" charset="utf-8"
+	src="js/jquery-1.7.2.min.js"></script>
+<script type="text/javascript" charset="utf-8"
+	src="js/jquery.mobile-1.1.0.min.js"></script>
+<script type="text/javascript" charset="utf-8" src="js/cordova-1.6.0.js"></script>
+
+<script type="text/javascript" charset="utf-8"
+	src="js/PositionBySmsPlugin.js"></script>
+<script type="text/javascript" charset="utf-8"
+	src="js/com.ssambi.state.js"></script>
+	
+</head>
+<body>
+
+	<div data-role="page" data-theme="a" id="index">
+		<div data-role="header">
+			<h1>PositionBySms</h1>
+		</div>
+		<div data-role="content">
+			<h4>This app sends a SMS text message with your location to
+				the allowed phone numbers who send a SMS request</h4>
+
+			<div id="receivers"></div>
+			<a href="#settings" data-role="button">Set phone numbers</a>
+
+			<br />
+			<br />
+			<br /> <label for="flip">Service enabled:</label> <select id="flip"
+				data-role="slider">
+				<option value="off">Off</option>
+				<option value="on">On</option>
+			</select>
+		</div>
+	</div>
+
+	<div data-role="page" data-theme="a" id="settings">
+		<div data-role="header" data-position="inline">
+			<a href="#index" data-icon="arrow-l">Back</a>
+			<h1>Phone numbers</h1>
+		</div>
+		<div data-role="content">
+		
+			<h4>Allowed phone numbers</h4>
+			
+			<a href="#addPhoneNumber" data-role="button" data-rel="dialog">Add</a>
+			
+			<br /><br />
+
+			<ul data-role="listview" id="phoneNumbersLV">
+			</ul>
+
+
+
+		</div>
+	</div>
+	
+	<div data-role="page" data-theme="a" id="addPhoneNumber">
+		<div data-role="header">
+			<h1>Add phone number</h1>
+		</div>
+		<div data-role="content">
+		
+			<label for="phoneNumber">Phone number:</label>
+			<input type="tel" pattern="[0-9]*" id="phoneNumber" value="" />
+			
+			<br />
+			
+			<a href="#" data-role="button" id="addBtn" data-icon="plus">Add</a>       
+			<a href="#" data-role="button" data-rel="back" data-icon="back">Cancel</a>  
+
+
+
+		</div>
+	</div>
+	
+	<div data-role="page" data-theme="a" id="showPhoneNumber">
+		<div data-role="header">
+			<h1>Phone number</h1>
+		</div>
+		<div data-role="content">
+		
+			<h4 id="selectedPhoneNumber"></h4>
+			
+			<br />
+			
+			<a href="#" data-role="button" id="deleteBtn" data-icon="delete">Delete</a>       
+			<a href="#" data-role="button" data-rel="back" data-icon="back">Cancel</a>  
+
+
+
+		</div>
+	</div>
+
+
+
+
+	<script type="text/javascript" charset="utf-8">
+	var state = com.ssambi.state;
+	
+	var STATE_KEY = 'state';
+	$(state).bind(com.ssambi.CHANGED_EVENT, function(event, propertyChanged) {
+		window.localStorage.setItem(STATE_KEY, JSON.stringify(state.getStorageObj()));
+		
+		if (propertyChanged == 'active') {
+			if (state.isActive()) {
+				startPlugin();
+			} else {
+				stopPlugin();
+			}
+		} else {
+			// if phone numbers are changed, restart the plugin
+			if (state.isActive()) {
+			
+			 	state.setActive(false);
+				
+				if (state.getPhoneNumbers().length > 0) {
+					state.setActive(true);
+				}
+			}
+		}
+	});
+	
+	function startPlugin() {
+		window.plugins.positionbysmsplugin.start(
+   	 		state.getPhoneNumbers(),
+			function(){ console.log('plugin started'); },
+			function(e){ alert(e); }
+		);
+	}
+	function stopPlugin() {
+		window.plugins.positionbysmsplugin.stop(
+			function(){ console.log('plugin stopped'); },
+			function(e){ alert(e); }
+		);
+	}
+	
+	
+
+ 	document.addEventListener("deviceready", onDeviceReady, false);
+ 	//$(onDeviceReady);
+
+    function onDeviceReady() {
+    	//window.localStorage.removeItem(STATE_KEY);
+    
+    	var s = window.localStorage.getItem(STATE_KEY);
+		if (s != null) {
+			state.loadFromStorageObj(JSON.parse(s));
+		}
+     	
+    	
+    	refreshIndex();
+    	$('#index').live( 'pageshow', function(event, ui){
+		  	refreshIndex();
+		});
+    	
+    	
+    	 $('#flip').bind('change', function(event, ui) {
+    		state.setActive( $('#flip').val() == 'on');
+    	});
+    	
+    	
+    	$('#addBtn').bind('click', function() {
+    		var newPhoneNumber = $('#phoneNumber').val();
+    		if (newPhoneNumber == null || newPhoneNumber.length == 0) {
+    			alert('phone number is empty');
+    		} else {
+    			state.addPhoneNumber(newPhoneNumber);
+    			    			
+    			$('#phoneNumber').val('');
+    			
+    			$('#addPhoneNumber').dialog('close');
+    		}
+    	});
+    	
+    	$('#settings').live( 'pageshow', function(event, ui){
+	  		refreshSettings();
+		});
+    	
+    }
+    
+    function refreshIndex() {
+    	console.log('load');
+    
+    	var html;
+    	if (state.getPhoneNumbers().length == 0) {
+    		html = 'No receivers found, add some phone numbers';
+    	} else {
+    		html = 'There are already ' + state.getPhoneNumbers().length + ' phone numbers';
+    	}
+    	$('#receivers').html(html);
+    	
+    	$('#flip').slider(state.getPhoneNumbers().length == 0 ? 'disable' : 'enable');
+    	$('#flip').val(state.isActive() ? 'on' : 'off').slider('refresh');
+    }
+    
+    function refreshSettings() {
+    	var lv = $('#phoneNumbersLV');
+    	lv.empty();
+    	
+    	for (var i = 0; i < state.getPhoneNumbers().length; i++) {
+    		(function(index) {
+	    		var link = $('<a href="#">' + state.getPhoneNumbers()[i] + '</a>');
+		    	$(link).bind('click', function(event, ui) {
+		    		openPhoneNumber(index);
+		    	});
+		    	
+		    	lv.append(link);
+	    	
+	     		$(link).wrap('<li />');
+     		})(i);
+    	}
+    	
+    	lv.listview('refresh');
+    }
+    
+    function openPhoneNumber(index) {
+    	$('#selectedPhoneNumber').html(state.getPhoneNumbers()[index]);
+    	
+    	$('#deleteBtn').off('click');
+    	$('#deleteBtn').on('click', function() {
+    		state.removePhoneNumber(index);
+    		
+    		$('#showPhoneNumber').dialog('close');
+    	});
+    	
+    	$.mobile.changePage( $('#showPhoneNumber'), { role: 'dialog'} );
+    }
+	
+	    
+</script>
+
+</body>
+</html>
